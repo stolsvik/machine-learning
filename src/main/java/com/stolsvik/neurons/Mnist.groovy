@@ -18,7 +18,7 @@ class Mnist {
         NeuralNetwork network = new NeuralNetwork()
         network.addLayer(Layer_Input.createInputLayer(28 * 28))
 //        network.addLayer(Layer_WithInputs.createSigmoidLayer(500, network.lastLayer.neurons))
-//        network.addLayer(Layer_WithInputs.createSigmoidLayer(500, network.lastLayer.neurons))
+        network.addLayer(Layer_WithInputs.createSigmoidLayer(250, network.lastLayer.neurons))
         network.addLayer(Layer_WithInputs.createLinearLayer(10, network.lastLayer.neurons))
 
         Random random = new Random()
