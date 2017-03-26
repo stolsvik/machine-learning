@@ -17,13 +17,9 @@ class Layer_WithInputs extends Layer_Abstract {
         return neurons_WithInput
     }
 
-
-    private double _size
-
     private Layer_WithInputs(int layerIdx, Neuron_WithInputs[] neurons_WithInput) {
         super(layerIdx)
         this.neurons_WithInput = neurons_WithInput
-        _size = neurons_WithInput.size()
     }
 
     static Layer_WithInputs createSigmoidLayer(int layerIdx, int size, Neuron[] inputs) {

@@ -61,9 +61,9 @@ class NeuralNetwork {
         // ..Reverse of Hidden (used for backprop)
         hiddenLayers_reversed = hiddenLayers.reverse()
 
-        inputTransfer = new double[inputLayer.neurons_Input.length]
-
-        softmaxTransfer = new double[outputLayer.neurons_WithInput.length]
+        // :: Create the "transfer arrays", which is a way to avoid creating objects while training & evaluating
+        inputTransfer = new double[inputLayer.neurons.length]
+        softmaxTransfer = new double[outputLayer.neurons.length]
 
         // :: Initialize Weights and Biases with provided Random number generators.
         hiddenAndOutputLayers.each { it.initialize(randomWeight, randomBias) }
@@ -151,7 +151,7 @@ class NeuralNetwork {
         println "Evaluating [$images.size $images.type]:"
         long nanosStart = System.nanoTime()
         double summedCrossEntropy = 0
-        double[] softmaxOutputTransfer = new double[network.outputLayer.neurons.size()]
+        double[] softmaxTransfer = new double[network.outputLayer.neurons.length]
         int correct = 0
         double[] inputTransfer = new double[28 * 28]
         for (int i = 0; i < images.size; i++) {
@@ -160,7 +160,7 @@ class NeuralNetwork {
             network.hiddenAndOutputLayers.each { l -> l.calculate() }
 
             int label = images.getLabel(i)
-            summedCrossEntropy += network.outputLayer.softmaxAndSumCrossEntropyForOutputNeuronsVsTarget(softmaxOutputTransfer, label)
+            summedCrossEntropy += network.outputLayer.softmaxAndSumCrossEntropyForOutputNeuronsVsTarget(softmaxTransfer, label)
 
             int predictedLabel = network.outputLayer.getIdxOfNeuronMaxOutputValue()
             if (predictedLabel == label) {
@@ -182,7 +182,7 @@ class NeuralNetwork {
         network.inputLayer.setInputs(inputTransfer)
         network.hiddenAndOutputLayers.each { l -> l.calculate() }
 
-        int outputLayerSize = network.outputLayer.neurons.size()
+        int outputLayerSize = network.outputLayer.neurons.length
 
         int predictedLabel = network.outputLayer.getIdxOfNeuronMaxOutputValue()
 
