@@ -42,6 +42,14 @@ class Layer_WithInputs extends Layer_Abstract {
         new Layer_WithInputs(layerIdx, neurons)
     }
 
+    static Layer_WithInputs createLeakyReLULayer(int layerIdx, int size, double negativeSlope, Neuron[] inputs) {
+        Neuron_WithInputs[] neurons = new Neuron_WithInputs[size]
+        for (int i = 0; i < size; i++) {
+            neurons[i] = new Neuron_LeakyReLU(inputs, negativeSlope)
+        }
+        new Layer_WithInputs(layerIdx, neurons)
+    }
+
     void initialize(DoubleSupplier randomWeight, DoubleSupplier randomBias) {
         for (int i = 0; i < neurons_WithInput.length; i++) {
             Neuron_WithInputs neuron = neurons_WithInput[i]

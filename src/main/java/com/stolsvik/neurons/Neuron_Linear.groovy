@@ -18,6 +18,9 @@ class Neuron_Linear extends Neuron_WithInputs{
         calculateRawOutputValue()
     }
 
+    /**
+     * @return constant 1, as derived of 'f(x) = x' is 1
+     */
     @Override
     double getDerivativeOfOutputValue() {
         // f(x) = x -> f'(x) = 1

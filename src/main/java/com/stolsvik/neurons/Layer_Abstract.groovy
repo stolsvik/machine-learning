@@ -10,6 +10,8 @@ abstract class Layer_Abstract implements Layer {
 
     int layerIdx
 
+    Layer_WithInputs nextLayer
+
     Layer_Abstract(int layerIdx) {
         this.layerIdx = layerIdx
     }
