@@ -246,7 +246,7 @@ class NeuralNetwork {
         for (int l = 1; l < layers.size(); l++) {
             Layer_WithInputs layer = (Layer_WithInputs) layers[l]
             println "Layer $l weights of neuron $neuronIdxOfEachLayer:\n" +
-                    "${layer.dumpCurrentWeights(neuronIdxOfEachLayer)}"
+                    "${layer.neurons_WithInput[neuronIdxOfEachLayer].dumpCurrentWeights()}"
         }
     }
 

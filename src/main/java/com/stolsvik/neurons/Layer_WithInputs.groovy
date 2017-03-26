@@ -252,15 +252,6 @@ class Layer_WithInputs extends Layer_Abstract {
         1 / predictedProbabilityForLabel
     }
 
-    String dumpCurrentWeights(int neuronIdx) {
-        StringBuilder buf = new StringBuilder()
-        double[] weights = neurons_WithInput[neuronIdx].weights
-        weights.eachWithIndex { double weight, int i ->
-            Static.singleDumpElement(buf, i, Static.ff4(weight))
-        }
-        buf.toString().substring(0, buf.length() - 1)
-    }
-
     String dumpCurrentNodeDeltas() {
         StringBuilder buf = new StringBuilder()
         neurons_WithInput.eachWithIndex { Neuron_WithInputs neuron, int i ->
