@@ -2,6 +2,10 @@ package com.stolsvik.neurons
 
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
+import java.util.concurrent.ForkJoinPool
+import java.util.concurrent.ForkJoinTask
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.DoubleAdder
 import java.util.function.DoubleSupplier
 
 /**
@@ -17,32 +21,32 @@ class Layer_WithInputs extends Layer_Abstract {
         return neurons_WithInput
     }
 
+    private ForkJoinPool fjPool = ForkJoinPool.commonPool()
+
+    private double[] weightedSumOfNodeDeltasFromNextLayer
+
+
     private Layer_WithInputs(int layerIdx, Neuron_WithInputs[] neurons_WithInput) {
         super(layerIdx)
         this.neurons_WithInput = neurons_WithInput
+        weightedSumOfNodeDeltasFromNextLayer = new double[neurons_WithInput.length]
     }
 
     static Layer_WithInputs createSigmoidLayer(int layerIdx, int size, Neuron[] inputs) {
         Neuron_WithInputs[] neurons = new Neuron_WithInputs[size]
-        for (int i = 0; i < size; i++) {
-            neurons[i] = new Neuron_Sigmoid(inputs)
-        }
+        neurons.eachWithIndex { entry, int i -> neurons[i] = new Neuron_Sigmoid(inputs) }
         new Layer_WithInputs(layerIdx, neurons)
     }
 
     static Layer_WithInputs createLinearLayer(int layerIdx, int size, Neuron[] inputs) {
         Neuron_WithInputs[] neurons = new Neuron_WithInputs[size]
-        for (int i = 0; i < size; i++) {
-            neurons[i] = new Neuron_Linear(inputs)
-        }
+        neurons.eachWithIndex { entry, int i -> neurons[i] = new Neuron_Linear(inputs) }
         new Layer_WithInputs(layerIdx, neurons)
     }
 
     static Layer_WithInputs createLeakyReLULayer(int layerIdx, int size, double negativeSlope, Neuron[] inputs) {
         Neuron_WithInputs[] neurons = new Neuron_WithInputs[size]
-        for (int i = 0; i < size; i++) {
-            neurons[i] = new Neuron_LeakyReLU(inputs, negativeSlope)
-        }
+        neurons.eachWithIndex { entry, int i -> neurons[i] = new Neuron_LeakyReLU(inputs, negativeSlope) }
         new Layer_WithInputs(layerIdx, neurons)
     }
 
@@ -58,8 +62,11 @@ class Layer_WithInputs extends Layer_Abstract {
 
     void calculate() {
         for (int i = 0; i < neurons_WithInput.length; i++) {
-            neurons_WithInput[i].calculate()
+            Neuron_WithInputs neuron = neurons_WithInput[i]
+            // A little parallelization: Run each neuron's sum-of-products in separate Runnable.
+            fjPool.execute { neuron.calculate() }
         }
+        fjPool.awaitQuiescence(1L, TimeUnit.SECONDS)
     }
 
     /**
@@ -136,10 +143,9 @@ class Layer_WithInputs extends Layer_Abstract {
      *
      * @param nextLayer
      */
-    void backpropagateNodeDeltasFromNextLayerIntoThisLayer(Layer_WithInputs nextLayer) {
+    void backpropagateNodeDeltasFromNextLayerIntoThisLayer() {
         int thisLayerNeuronLength = neurons_WithInput.length
         int nextLayerNeuronLength = nextLayer.neurons_WithInput.length
-        double[] weightedSumOfNodeDeltasFromNextLayer = new double[thisLayerNeuronLength]
 
         /**
          * DO REMEMBER: For this backprop summing, it is not THIS Layer l's weights W we're using now, it is weights of
@@ -148,6 +154,12 @@ class Layer_WithInputs extends Layer_Abstract {
          * Again: the weight belongs to Layer l+1, not this Layer l.
          */
 
+        // :: Reset the sum-array (Reusing to avoid memory churn)
+        for (int j = 0; j < thisLayerNeuronLength; j++) {
+            weightedSumOfNodeDeltasFromNextLayer[j] = 0
+        }
+
+        // :: Sum up node deltas * weight from projected-to neurons for each neuron in this layer
         for (int i = 0; i < nextLayerNeuronLength; i++) {
             Neuron_WithInputs projectedToNeuron = nextLayer.neurons_WithInput[i]
             double δ_nodeDelta_ForProjectedToNeuron = projectedToNeuron.δ_nodeDelta
@@ -157,6 +169,8 @@ class Layer_WithInputs extends Layer_Abstract {
             }
         }
 
+        // :: Create node deltas for each neuron in this layer, based on the sums of projected-to node deltas * weights,
+        //    multiplied by the derivative of this neuron's activation function.
         for (int j = 0; j < thisLayerNeuronLength; j++) {
             Neuron_WithInputs thisNeuron = this.neurons_WithInput[j]
             thisNeuron.δ_nodeDelta = weightedSumOfNodeDeltasFromNextLayer[j] * thisNeuron.derivativeOfOutputValue

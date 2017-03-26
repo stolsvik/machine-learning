@@ -41,8 +41,6 @@ class NeuralNetwork {
         layers.add(layer)
     }
 
-    List<Layer_WithInputs> hiddenLayers
-
     List<Layer_WithInputs> hiddenLayers_reversed
 
     List<Layer_WithInputs> hiddenAndOutputLayers
@@ -56,10 +54,8 @@ class NeuralNetwork {
         hiddenAndOutputLayers = layers[1..layers.size() - 1] as List<Layer_WithInputs>
 
         // ..Hidden Layers: Exclude Input and Output. Input, Hidden, Output -> Size=3 -> Range=[1,1], i.e. [1, size()-2]
-        hiddenLayers = layers[1..layers.size() - 2] as List<Layer_WithInputs>
-
-        // ..Reverse of Hidden (used for backprop)
-        hiddenLayers_reversed = hiddenLayers.reverse()
+        //   NOTICE that these are in reversed order! (used for backprop)
+        hiddenLayers_reversed = layers[1..layers.size() - 2].reverse() as List<Layer_WithInputs>
 
         // :: Create the "transfer arrays", which is a way to avoid creating objects while training & evaluating
         inputTransfer = new double[inputLayer.neurons.length]
@@ -136,7 +132,7 @@ class NeuralNetwork {
             // :: BACK PROPAGATE THE ERRORS BACKWARDS THROUGH THE NETWORK
 
             // Do backpropagation of node deltas for this sample (Go backwards through layers: Layer L-1 takes values from L, Layer L-2 takes values from Layer L-1...)
-            this.hiddenLayers_reversed.each { l -> l.backpropagateNodeDeltasFromNextLayerIntoThisLayer(l.nextLayer) }
+            this.hiddenLayers_reversed.each { l -> l.backpropagateNodeDeltasFromNextLayerIntoThisLayer() }
 
             // .. then accumulate the node deltas into the accumulator (simple layer-by-layer, only involving values from the layer itself)
             this.hiddenAndOutputLayers.each { l -> l.accumulateNodeDeltaForMiniBatch() }
@@ -154,6 +150,9 @@ class NeuralNetwork {
         double[] softmaxTransfer = new double[network.outputLayer.neurons.length]
         int correct = 0
         double[] inputTransfer = new double[28 * 28]
+
+        // NOTE wrt. Parallelization: Due to the shared state of the computed&cached output values of neurons, the code
+        // can not be parallelized on a coarse level, i.e. sending separate images through the network at the same time.
         for (int i = 0; i < images.size; i++) {
             images.getImage(i, inputTransfer)
             network.inputLayer.setInputs(inputTransfer)
