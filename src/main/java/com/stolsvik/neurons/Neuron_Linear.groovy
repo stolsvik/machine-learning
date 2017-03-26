@@ -14,6 +14,13 @@ class Neuron_Linear extends Neuron_WithInputs{
      */
     @Override
     double calculateOutputValue() {
+        // f(x) = x
         calculateRawOutputValue()
+    }
+
+    @Override
+    double getDerivativeOfOutputValue() {
+        // f(x) = x -> f'(x) = 1
+        return 1
     }
 }

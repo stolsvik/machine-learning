@@ -9,36 +9,42 @@ import java.util.function.DoubleSupplier
  */
 @CompileStatic
 @Slf4j
-class Layer_WithInputs implements Layer {
+class Layer_WithInputs extends Layer_Abstract {
 
-    Neuron_WithInputs[] neurons
+    Neuron_WithInputs[] neurons_WithInput
+
+    Neuron[] getNeurons() {
+        return neurons_WithInput
+    }
+
 
     private double _size
 
-    private Layer_WithInputs(Neuron_WithInputs[] neurons) {
-        this.neurons = neurons
-        _size = neurons.size()
+    private Layer_WithInputs(int layerIdx, Neuron_WithInputs[] neurons_WithInput) {
+        super(layerIdx)
+        this.neurons_WithInput = neurons_WithInput
+        _size = neurons_WithInput.size()
     }
 
-    static Layer_WithInputs createSigmoidLayer(int size, Neuron[] inputs) {
+    static Layer_WithInputs createSigmoidLayer(int layerIdx, int size, Neuron[] inputs) {
         Neuron_WithInputs[] neurons = new Neuron_WithInputs[size]
         for (int i = 0; i < size; i++) {
             neurons[i] = new Neuron_Sigmoid(inputs)
         }
-        new Layer_WithInputs(neurons)
+        new Layer_WithInputs(layerIdx, neurons)
     }
 
-    static Layer_WithInputs createLinearLayer(int size, Neuron[] inputs) {
+    static Layer_WithInputs createLinearLayer(int layerIdx, int size, Neuron[] inputs) {
         Neuron_WithInputs[] neurons = new Neuron_WithInputs[size]
         for (int i = 0; i < size; i++) {
             neurons[i] = new Neuron_Linear(inputs)
         }
-        new Layer_WithInputs(neurons)
+        new Layer_WithInputs(layerIdx, neurons)
     }
 
     void initialize(DoubleSupplier randomWeight, DoubleSupplier randomBias) {
-        for (int i = 0; i < neurons.length; i++) {
-            Neuron_WithInputs neuron = neurons[i]
+        for (int i = 0; i < neurons_WithInput.length; i++) {
+            Neuron_WithInputs neuron = neurons_WithInput[i]
             for (int j = 0; j < neuron.incoming.length; j++) {
                 neuron.weights[j] = randomWeight.getAsDouble()
                 neuron.bias = randomBias.getAsDouble()
@@ -47,8 +53,8 @@ class Layer_WithInputs implements Layer {
     }
 
     void calculate() {
-        for (int i = 0; i < neurons.length; i++) {
-            neurons[i].calculate()
+        for (int i = 0; i < neurons_WithInput.length; i++) {
+            neurons_WithInput[i].calculate()
         }
     }
 
@@ -58,9 +64,9 @@ class Layer_WithInputs implements Layer {
      */
     int getIdxOfNeuronMaxOutputValue() {
         int idx = 0
-        double max = neurons[0].outputValue
-        for (int i = 1; i < neurons.size(); i++) {
-            double outputValue = neurons[i].outputValue
+        double max = neurons_WithInput[0].outputValue
+        for (int i = 1; i < neurons_WithInput.size(); i++) {
+            double outputValue = neurons_WithInput[i].outputValue
             if (outputValue > max) {
                 idx = i
                 max = outputValue
@@ -70,12 +76,12 @@ class Layer_WithInputs implements Layer {
     }
 
     /**
-     * Calculates the Softmax of the non-activation-function neurons, and stores them into the array parameter
-     * 'softmaxTransfer'.
+     * Calculates the <i>Softmax</i> of the neurons in this layer (which should be of the {@link Neuron_Linear} type),
+     * and stores them into the array parameter 'softmaxTransfer'.
      *
      * <b>Note that the neurons in this layer should NOT have any non-linearities, e.g. Sigmoid/Logistic, ReLU etc.
      * applied as activation/transfer function, but rather have the plain summation values, i.e. (Σ(aj*wij))+bi, as
-     * their output.</b>
+     * their output, i.e. be of the type {@link Neuron_Linear}.</b>
      *
      * <i>Softmax is a generalization of the logistic function that "squashes" a K-dimensional vector 'z' of arbitrary
      * real values to a K-dimensional vector σ(z) of real values in the range (0, 1) that add up to 1.</i>
@@ -83,10 +89,10 @@ class Layer_WithInputs implements Layer {
      * @see <a href="https://en.wikipedia.org/wiki/Softmax_function">Softmax function @ Wikipedia</a>
      */
     void calculateSoftmaxOutput(double[] softmaxTransfer) {
-        int size = neurons.size()
+        int size = neurons_WithInput.size()
         double Σek = 0
         for (int i = 0; i < size; i++) {
-            double z = neurons[i].outputValue
+            double z = neurons_WithInput[i].outputValue
             double ez = Math.exp(z)
             softmaxTransfer[i] = ez
             Σek += ez
@@ -96,20 +102,78 @@ class Layer_WithInputs implements Layer {
         }
     }
 
-    void softmaxAndBackpropagateErrors(double[] softmaxTransfer, int label) {
+    /**
+     * <b>For the Output layer only<b>: Calculate the <i>Node Delta</i> for the neurons in the this (output) layer,
+     * by doing softmax on the neuron's (linear) output..
+     *
+     * @param softmaxTransfer the array in which to store the softmax.
+     * @param target the "Target value" for the specimen being presented to the network now (i.e. for the image of a "7",
+     * the value should be 7, i.e. the "label" of the image).
+     */
+    void softmaxAndCalculateCrossEntropyNodeDeltaForOutputLayerNeurons(double[] softmaxTransfer, int target) {
         calculateSoftmaxOutput(softmaxTransfer)
-        for (int i = 0; i < neurons.length; i++) {
+        for (int i = 0; i < neurons_WithInput.length; i++) {
             double ai = softmaxTransfer[i]
-            boolean correct = label == i
-            // crossEntropy += crossEntropyOfSingle(ai, correct)
-            if (correct) {
-                // ti == 1
-                neurons[i].updateWithNodeDelta(1 - ai)
+
+            /**
+             * NodeDelta for CrossEntropy with Softmax on Output Layer: dCE/dai * dai/dnet = -(ti - ai)
+             * If target is the digit 7, then ti = 0 for i != 7, and t7 = 1. (i.e. "One Hot" encoding of targets)
+             */
+
+            int ti = (target == i) ? 1 : 0
+
+            neurons_WithInput[i].δ_nodeDelta = -(ti - ai)
+        }
+    }
+
+    /**
+     * Sum up the weighted sum of the node deltas which each of the neurons in this layer projects to (i.e. the neurons
+     * which have these neuron as one of their inputs), then multiplies that with the derivative of this node's activation.
+     *
+     * @param nextLayer
+     */
+    void backpropagateNodeDeltasFromNextLayerIntoThisLayer(Layer_WithInputs nextLayer) {
+        int thisLayerNeuronLength = neurons_WithInput.length
+        int nextLayerNeuronLength = nextLayer.neurons_WithInput.length
+        double[] weightedSumOfNodeDeltasFromNextLayer = new double[thisLayerNeuronLength]
+
+        /**
+         * DO REMEMBER: For this backprop summing, it is not THIS Layer l's weights W we're using now, it is weights of
+         * Layer l+1. Hence, in the Wij notation, we're "From" node j, while the projected-to node is the "To" node i,
+         * and the Wij notation refers to the weight FROM this Layer l's node j, TO Layer l+1's node i.
+         * Again: the weight belongs to Layer l+1, not this Layer l.
+         */
+
+        for (int i = 0; i < nextLayerNeuronLength; i++) {
+            Neuron_WithInputs projectedToNeuron = nextLayer.neurons_WithInput[i]
+            double δ_nodeDelta_ForProjectedToNeuron = projectedToNeuron.δ_nodeDelta
+            for (int j = 0; j < thisLayerNeuronLength; j++) {
+                // OPTIMIZE: Cache the multiplied outputValue * weights in the projectedToNeuron from the forward pass?
+                weightedSumOfNodeDeltasFromNextLayer[j] += δ_nodeDelta_ForProjectedToNeuron * projectedToNeuron.weights[j]
             }
-            else {
-                // ti == 0
-                neurons[i].updateWithNodeDelta(0 - ai)
-            }
+        }
+
+        for (int j = 0; j < thisLayerNeuronLength; j++) {
+            Neuron_WithInputs thisNeuron = this.neurons_WithInput[j]
+            thisNeuron.δ_nodeDelta = weightedSumOfNodeDeltasFromNextLayer[j] * thisNeuron.derivativeOfOutputValue
+        }
+    }
+
+    void accumulateNodeDeltaForMiniBatch() {
+        for (int j = 0; j < neurons_WithInput.length; j++) {
+            this.neurons_WithInput[j].accumulateNodeDeltaForMinibatch()
+        }
+    }
+
+    void updateWeightsAndBiasWithMinibatchAccumulatedNodeDelta(double η_trainingRate) {
+        for (int i = 0; i < neurons_WithInput.length; i++) {
+            neurons_WithInput[i].updateWeightsAndBiasWithMinibatchAccumulatedNodeDelta(η_trainingRate)
+        }
+    }
+
+    void clearAccumulatedNodeDelta() {
+        for (int i = 0; i < neurons_WithInput.length; i++) {
+            neurons_WithInput[i].clearAccumulatedNodeDelta()
         }
     }
 
@@ -117,10 +181,10 @@ class Layer_WithInputs implements Layer {
      * Implements the <i>cross entropy</i> between the output vs. the expected (labels), as described
      * <a href="https://en.wikipedia.org/wiki/Cross_entropy">in Wikipedia</a>.
      */
-    double softmaxAndSumCrossEntropy(double[] softmaxTransfer, int label) {
+    double softmaxAndSumCrossEntropyForOutputNeuronsVsTarget(double[] softmaxTransfer, int label) {
         calculateSoftmaxOutput(softmaxTransfer)
         double crossEntropy = 0
-        for (int i = 0; i < neurons.length; i++) {
+        for (int i = 0; i < neurons_WithInput.length; i++) {
             double ai = softmaxTransfer[i]
             crossEntropy += crossEntropyOfSingle(ai, i == label)
         }
@@ -156,6 +220,13 @@ class Layer_WithInputs implements Layer {
      * https://web.stanford.edu/group/pdplab/pdphandbook/handbookch6.html
      * https://www.ics.uci.edu/~pjsadows/notes.pdf
      * https://mmlind.github.io/Simple_1-Layer_Neural_Network_for_MNIST_Handwriting_Recognition/
+     *
+     * Explain Backprop:
+     * https://ayearofai.com/rohan-lenny-1-neural-networks-the-backpropagation-algorithm-explained-abf4609d4f9d
+     * http://adbrebs.github.io/Backpropagation-simply-explained/
+     * http://neuralnetworksanddeeplearning.com/chap2.html
+     * https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
+     * https://web.stanford.edu/group/pdplab/pdphandbook/handbookch6.html
      */
     double getDerivativeOfCrossEntropy(double[] softmaxTransfer, int label) {
         // d/dx ln(x) => 1/x
@@ -163,27 +234,28 @@ class Layer_WithInputs implements Layer {
         1 / predictedProbabilityForLabel
     }
 
-    @Override
-    String toString() {
+    String dumpCurrentWeights(int neuronIdx) {
         StringBuilder buf = new StringBuilder()
-        buf.append "${this.class.simpleName}.neurons.outputValue:\n"
-        neurons.eachWithIndex { Neuron_WithInputs neuron, int i ->
-            if (i > 0) {
-                buf.append('\n')
-            }
-            buf.append "  Neuron #$i: ${Static.ff neuron.outputValue}, rawValue: ${Static.ff neuron.calculateRawOutputValue()}"
+        double[] weights = neurons_WithInput[neuronIdx].weights
+        weights.eachWithIndex { double weight, int i ->
+            Static.singleDumpElement(buf, i, Static.ff4(weight))
         }
-        return buf.toString()
+        buf.toString().substring(0, buf.length() - 1)
     }
 
-    String currentOutputValues() {
-        StringBuffer buf = new StringBuffer()
-        neurons.eachWithIndex { Neuron_WithInputs neuron, int i ->
-            buf.append(Static.ff(neuron.outputValue)).append(' ')
-            if (i % 20 == 0) {
-                buf.append('\n')
-            }
+    String dumpCurrentNodeDeltas() {
+        StringBuilder buf = new StringBuilder()
+        neurons_WithInput.eachWithIndex { Neuron_WithInputs neuron, int i ->
+            Static.singleDumpElement(buf, i, Static.ff4(neuron.δ_nodeDelta))
         }
-        buf.toString()
+        buf.toString().substring(0, buf.length() - 1)
+    }
+
+    String dumpCurrentAccumulatedNodeDeltas() {
+        StringBuilder buf = new StringBuilder()
+        neurons_WithInput.eachWithIndex { Neuron_WithInputs neuron, int i ->
+            Static.singleDumpElement(buf, i, Static.ff4(neuron.δ_nodeDelta_MiniBatchAccumulated))
+        }
+        buf.toString().substring(0, buf.length() - 1)
     }
 }

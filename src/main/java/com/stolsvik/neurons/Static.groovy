@@ -21,18 +21,22 @@ class Static {
         return sprintf("%.3f ms", millisBetween)
     }
 
-    static ff(float f) {
+    static String ff(float f) {
         if (f == Float.MAX_VALUE) {
             return 'MAXF'
         }
         ff((double) f)
     }
 
-    static ff(double d) {
+    static String ff(double d) {
         if (d == Double.MAX_VALUE) {
             return 'MAXD'
         }
-        sprintf("%.8f", d)
+        sprintf("%2.8f", d)
+    }
+
+    static String ff4(double d) {
+        sprintf("%7.4f", d)
     }
 
     static <T> T time(Logger logTo, String explain, Closure c) {
@@ -66,6 +70,16 @@ class Static {
             for (int i = 0; i < numSplits; i++) {
                 threads[i].join()
             }
+        }
+    }
+
+    static singleDumpElement(StringBuilder buf, int idx, String value){
+        if ((idx) % 28 == 0) {
+            buf.append(sprintf('  #%03d: ', idx))
+        }
+        buf.append(value).append(' ')
+        if ((idx+1) % 28 == 0) {
+            buf.append('\n')
         }
     }
 

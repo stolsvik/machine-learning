@@ -13,8 +13,10 @@ abstract class Neuron_WithInputs implements Neuron {
     double bias
     Neuron[] incoming
 
-    // Cached calculated output value
+    // Cached calculated output value for current input, forward pass
     double outputValue
+    // Cached calculated node delta for current input, backpropagation pass.
+    double δ_nodeDelta
 
     Neuron_WithInputs(Neuron[] incoming) {
         this.incoming = incoming
@@ -24,17 +26,6 @@ abstract class Neuron_WithInputs implements Neuron {
     @Override
     void calculate() {
         outputValue = calculateOutputValue()
-    }
-
-    double δ_nodeDelta
-
-    void updateWithNodeDelta(double δ_nodeDelta) {
-        double eta = 0.00001d
-        this.δ_nodeDelta = δ_nodeDelta
-        for (int i = 0; i < weights.length; i++) {
-            weights[i] = weights[i] + (eta * incoming[i].outputValue * δ_nodeDelta)
-        }
-        bias = bias + (eta * 1d * δ_nodeDelta)
     }
 
     /**
@@ -49,5 +40,35 @@ abstract class Neuron_WithInputs implements Neuron {
             Σ += (weights[i] * incoming[i].outputValue)
         }
         return Σ + bias
+    }
+
+    /**
+     * @return the derivative of the current output value.
+     */
+    abstract double getDerivativeOfOutputValue()
+
+    double δ_nodeDelta_MiniBatchAccumulated
+
+    void accumulateNodeDeltaForMinibatch() {
+        δ_nodeDelta_MiniBatchAccumulated += δ_nodeDelta
+    }
+
+    void updateWeightsAndBiasWithMinibatchAccumulatedNodeDelta(double η_trainingRate) {
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] = weights[i] - (η_trainingRate * incoming[i].outputValue * δ_nodeDelta_MiniBatchAccumulated)
+        }
+        bias = bias - (η_trainingRate * 1d * δ_nodeDelta_MiniBatchAccumulated)
+    }
+
+    void clearAccumulatedNodeDelta() {
+        δ_nodeDelta_MiniBatchAccumulated = 0
+    }
+
+    String dumpCurrentWeights() {
+        StringBuilder buf = new StringBuilder()
+        weights.eachWithIndex { double weight, int i ->
+            Static.singleDumpElement(buf, i, Static.ff4(weight))
+        }
+        buf.toString().substring(0, buf.length() - 1)
     }
 }

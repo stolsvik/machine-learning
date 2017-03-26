@@ -36,6 +36,19 @@ class NeuralNetwork {
         layers.add(layer)
     }
 
+
+    String toString() {
+        StringBuilder buf = new StringBuilder()
+        buf.append("Neural Network of ${layers.size()} layers: ")
+        layers.eachWithIndex { Layer layer, int i ->
+            if (i > 0) {
+                buf.append(', ')
+            }
+            buf.append("#$i:[${layer.neurons.size()}]*${layer.neurons[0].getClass().getSimpleName()}")
+        }
+        buf.toString()
+    }
+
     void calculate() {
         // Start from top, "Feed Forward"
         layers.each { it.calculate() }
@@ -48,6 +61,35 @@ class NeuralNetwork {
             }
             Layer_WithInputs hiddenOrOutputLayer = (Layer_WithInputs) layer
             hiddenOrOutputLayer.initialize(randomWeight, randomBias)
+        }
+    }
+
+    void dumpOutputValues() {
+        for (int l = 0; l < layers.size(); l++) {
+            Layer_Abstract layer = (Layer_Abstract) layers[l]
+            println "Layer $l output values:\n${layer.dumpCurrentOutputValues()}"
+        }
+    }
+
+    void dumpNodeDeltas() {
+        for (int l = 1; l < layers.size(); l++) {
+            Layer_WithInputs layer = (Layer_WithInputs) layers[l]
+            println "Layer $l node deltas:\n${layer.dumpCurrentNodeDeltas()}"
+        }
+    }
+
+    void dumpAccumulatedNodeDeltas() {
+        for (int l = 1; l < layers.size(); l++) {
+            Layer_WithInputs layer = (Layer_WithInputs) layers[l]
+            println "Layer $l ACCUMULATED node deltas (from last mini batch):\n${layer.dumpCurrentAccumulatedNodeDeltas()}"
+        }
+    }
+
+    void dumpWeights(int neuronIdxOfEachLayer) {
+        for (int l = 1; l < layers.size(); l++) {
+            Layer_WithInputs layer = (Layer_WithInputs) layers[l]
+            println "Layer $l weights of neuron $neuronIdxOfEachLayer:\n" +
+                    "${layer.dumpCurrentWeights(neuronIdxOfEachLayer)}"
         }
     }
 
