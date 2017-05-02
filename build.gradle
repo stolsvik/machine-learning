@@ -1,7 +1,6 @@
 apply plugin: 'groovy'
 
 repositories {
-    maven { url 'http://download.osgeo.org/webdav/geotools/' } // Don't like this. JAI is dead.
     mavenCentral()
 }
 
@@ -29,16 +28,6 @@ dependencies {
 
     compile 'org.codehaus.groovy:groovy-all:2.4.+' // For Groovy
 
-    compile 'javax.media:jai_core:1.1.3' // Java Advanced Imaging. Notice the extra maven URL at top.
-// https://mvnrepository.com/artifact/javax.media/jai_codec
-    compile group: 'javax.media', name: 'jai_codec', version: '1.1.3'
-
-    compile 'com.miglayout:miglayout-swing:5.0'
-
-    compile 'de.erichseifert.gral:gral-core:0.+'  // Graphing
-
-    compile 'org.knowm.xchart:xchart:3.+'
-
     testCompile 'junit:junit:4.12'
 }
 
@@ -53,7 +42,7 @@ task systemInformation << {
     }
     println ''
     println "** Java Version:   " + System.getProperty("java.version")
-    println "** Groovy Version: " + groovy.lang.GroovySystem.getVersion()
+    println "** Groovy Version: " + GroovySystem.getVersion()
     println "** Gradle Version: " + gradle.gradleVersion
 }
 
